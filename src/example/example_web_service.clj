@@ -11,6 +11,7 @@
   (:require [clojure.tools.logging :as log]
             [compojure.core :as compojure]
             [example.example-web-core :as web-core]
+            [example.another-web-core :as another-web-core]
             [puppetlabs.trapperkeeper.core :as trapperkeeper]
             [puppetlabs.trapperkeeper.services :as tk-services]))
 
@@ -52,11 +53,17 @@
         this
         ;; Designate the app method from the web service as the handler for
         ;; any requests on the route for our url prefix ("/hello/...").
-        (compojure/context url-prefix []
+        (compojure/context  "/hello" []
           ;; This app method requires a service context as the argument
           ;; Use trapperkeeper's get-service method to fetch the example
           ;; service from the trapperkeeper app by its protocol name:
           (web-core/app (tk-services/get-service this :HelloService))))
+
+      (add-ring-handler
+        this
+        (compojure/context "/even" []
+          (another-web-core/app (tk-services/get-service this :AnotherService)))
+        )
       ;; Also store the current URL prefix in the context
       (assoc context :url-prefix url-prefix)))
 
