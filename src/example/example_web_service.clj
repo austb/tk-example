@@ -45,21 +45,24 @@
     ;;     "example.example-web-service/hello-web-service": "/hello"
     ;;  }
     ;;
-    (let [url-prefix (get-route this)]
+    (let  [url-prefix  (get-route this :hello)]
       ;; The WebroutingService's add-ring-handler sets up some handler method
       ;; that should respond to requests for anything under some common url
       ;; segment (the prefix).
       (add-ring-handler
         this
-        ;; Designate the app method from the web service as the handler for
-        ;; any requests on the route for our url prefix ("/hello/...").
-        (compojure/context url-prefix []
-          ;; This app method requires a service context as the argument
-          ;; Use trapperkeeper's get-service method to fetch the example
-          ;; service from the trapperkeeper app by its protocol name:
-          (web-core/app (tk-services/get-service this :HelloService))))
-      ;; Also store the current URL prefix in the context
-      (assoc context :url-prefix url-prefix)))
+        (compojure/context url-prefix [] (web-core/app (tk-services/get-service this :HelloService)))
+        {:route-id :hello}))
+
+    (let  [url-prefix  (get-route this :even)]
+      ;; The WebroutingService's add-ring-handler sets up some handler method
+      ;; that should respond to requests for anything under some common url
+      ;; segment (the prefix).
+      (add-ring-handler
+        this
+        (compojure/context url-prefix [] (another-web-core/app (tk-services/get-service this :AnotherService)))
+        {:route-id :even}))
+      context)
 
   (start [this context]
          ;; All this start method does is print a notice.
@@ -75,25 +78,12 @@
                port (get-in-config [:webserver :port])
                ;; Like the init method, this call to get-route looks up the
                ;; "/hello/" url prefix configured in config.conf
-               url-prefix (get-route this)]
+               url-prefix (get-route this :hello)]
               (log/infof "Hello web service started; visit http://%s:%s%s/world to check it out!"
-                         host port url-prefix))
+                         host port url-prefix)
+              (log/infof "Even web service started; visit http://%s:%s%s/world to check it out!"
+                         host port (get-route this :even)))
          context))
 
 ;; Note this service doesn't implement stop, there would be nothing to do there.
 
-(trapperkeeper/defservice even-web-service
-  [[:ConfigService get-in-config]
-   [:WebroutingService add-ring-handler get-route]]
-  (init [this context]
-    (log/info "Initializing even webservice")
-    (let [url-prefix (get-route this)]
-      (add-ring-handler this (compojure/context url-prefix [] (another-web-core/app (tk-services/get-service this :AnotherService))))
-      (assoc context :url-prefix url-prefix)))
-  (start [this context]
-         (let [host (get-in-config [:webserver :host])
-               port (get-in-config [:webserver :port])
-               url-prefix (get-route this)]
-              (log/infof "Even web service started; visit http://%s:%s%s/<number> to check it out!"
-                         host port url-prefix))
-         context))
